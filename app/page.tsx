@@ -1,5 +1,9 @@
+// app/page.tsx
 import { redirect } from "next/navigation";
 
-export default function Page() {
+// gør siden dynamisk (ingen SSG af roden)
+export const dynamic = "force-dynamic";
+
+export default function Page(): never {
   redirect("/partner-beregner");
 }
