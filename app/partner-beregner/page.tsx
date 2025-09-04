@@ -1,11 +1,10 @@
-// app/partner-beregner/page.tsx
 import { Suspense } from "react";
 import ClientPage from "./client-page";
 
-// Sørger for at siden ikke forsøges statisk-prerendret
+// Slår prerender/SSG fra for ruten og kører altid dynamisk
 export const dynamic = "force-dynamic";
-// (valgfrit alternativ/tilføjelse)
-// export const revalidate = 0;
+export const fetchCache = "default-no-store";
+export const revalidate = 0;
 
 export default function Page() {
   return (
