@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
+/* ---------- TimeInvest brand (v4) ---------- */
+@theme {
+  /* Primær og basis */
+  --color-primary: #465758;   /* <- PRIMÆR */
+  --color-ink:     #465758;
+  --color-ivory:   #f7f6f2;   /* <- Tabel-header baggrund */
+  --color-white:   #ffffff;
+
+  /* evt. rester fra tidligere tema hvis du bruger dem andre steder */
+  --color-sand: #e5d5c3;
+
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+               Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  --radius-card: 12px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: var(--color-ivory);
+  --foreground: var(--color-ink);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@layer base {
+  body { @apply bg-[--background] text-[--foreground] font-sans antialiased; }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ---------- UI-klasser ---------- */
+.ti-container { max-width: 1100px; margin-inline: auto; padding: 24px; }
+
+/* Kanter = primær */
+.ti-card  { background: var(--color-white); border: 1px solid var(--color-primary); border-radius: var(--radius-card); box-shadow: 0 1px 2px rgba(0,0,0,.04); padding: 16px; }
+.ti-input { padding: 8px 10px; border: 1px solid var(--color-primary); border-radius: 8px; outline: none; background: var(--color-white); }
+.ti-btn   { border: 1px solid var(--color-primary); background: var(--color-ivory); color: var(--color-primary); padding: 8px 12px; border-radius: 10px; cursor: pointer; }
+.ti-btn:hover { background: #ebe9e4; }
+
+.ti-h1 { color: var(--color-primary); font-weight: 700; font-size: 28px; }
+.ti-muted { color: #6b7280; }
+.ti-kpi { display:flex; justify-content:space-between; padding:6px 0; }
+
+/* Netto besparelse farver */
+.ti-positive { color:#047857; }
+.ti-negative { color:#b91c1c; }
+
+/* Tabel: header med #465758 og tekst #f7f6f2, kanter i #465758 */
+.ti-table { width: 100%; border-collapse: collapse; }
+
+.ti-table th {
+  background: var(--color-primary);   /* #465758 */
+  color: var(--color-ivory);          /* #f7f6f2 */
+  border-bottom: 1px solid var(--color-primary);
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.ti-table td {
+  border-bottom: 1px solid var(--color-primary); /* #465758 */
+  padding: 8px 10px;
 }
