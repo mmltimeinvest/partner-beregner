@@ -246,7 +246,7 @@ export default function ClientPage() {
       </header>
 
       <p className="ti-muted" style={{ marginBottom: 16 }}>
-        <strong>Justér</strong> antagelserne og se effekten på indtjeningen og kundens besparelse.
+        Justér antagelserne og se effekten på indtjeningen og kundens besparelse.
       </p>
 
       <div style={grid2}>
