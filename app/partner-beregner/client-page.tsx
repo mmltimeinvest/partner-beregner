@@ -7,8 +7,7 @@ import NextImage from "next/image";
 /* ---------- Formatters ---------- */
 const fmtDKK = (n: number) =>
   n.toLocaleString("da-DK", { style: "currency", currency: "DKK", maximumFractionDigits: 0 });
-const fmtPct = (n: number) =>
-  `${(n * 100).toLocaleString("da-DK", { maximumFractionDigits: 2 })}%`;
+const fmtPct = (n: number) => `${(n * 100).toLocaleString("da-DK", { maximumFractionDigits: 2 })}%`;
 
 // maks 2 decimaler (tekstvisning m. dansk komma)
 const fmtMax2 = (n: number) =>
@@ -25,8 +24,14 @@ const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 // Procentinput: viser/forventer fx 0,85 (svarer til 0.85%)
 function PercentInput({
-  value, onChange, placeholder,
-}: { value: number; onChange: (v: number) => void; placeholder?: string }) {
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  placeholder?: string;
+}) {
   const [text, setText] = useState<string>(fmtMax2(value * 100));
   useEffect(() => setText(fmtMax2(value * 100)), [value]);
 
@@ -58,8 +63,16 @@ function PercentInput({
 
 // Almindeligt tal (bruges her til mio. kr.)
 function NumberInput({
-  value, onChange, placeholder, min,
-}: { value: number; onChange: (v: number) => void; placeholder?: string; min?: number }) {
+  value,
+  onChange,
+  placeholder,
+  min,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  placeholder?: string;
+  min?: number;
+}) {
   const [text, setText] = useState<string>(String(value).replace(".", ","));
   useEffect(() => setText(String(value).replace(".", ",")), [value]);
 
@@ -132,30 +145,35 @@ export default function ClientPage() {
     return 1000; // default: 1.000 mio. kr.
   });
 
-  const [andelMed, setAndelMed] = useState<number>(getQ("a", 0.30));
-  const [raadgPct, setRaadgPct] = useState<number>(getQ("rf", 0.006));
-  const [kurtagePct, setKurtagePct] = useState<number>(getQ("k", 0.0));
-  const [tiAndel, setTiAndel] = useState<number>(getQ("ti", 0.40));
-  const [aarligVaekstMio, setAarligVaekstMio] = useState<number>(getQ("g", 30));
+  const [andelMed, setAndelMed] = useState<number>(getQ("a", 0.3)); // flytbar
+  const [raadgPct, setRaadgPct] = useState<number>(getQ("rf", 0.005));
+  const kurtagePct = 0; // kurtage-felt slettet (fast 0)
+  const [tiAndel] = useState<number>(getQ("ti", 0.4)); // input slettet, men bruges i beregning/visning
+  const [aarligVaekstMio, setAarligVaekstMio] = useState<number>(getQ("g", 30)); // nye midler pr. år (mio.)
+  const [kursPct, setKursPct] = useState<number>(getQ("ks", 0.0)); // gennemsnitlig årlig kursstigning
 
   const [currPortefOmk, setCurrPortefOmk] = useState<number>(getQ("cpo", 0.012));
   const [expPortefOmk, setExpPortefOmk] = useState<number>(getQ("epo", 0.008));
   const [currFee, setCurrFee] = useState<number>(getQ("cf", 0.0035));
   const [expFee, setExpFee] = useState<number>(getQ("ef", 0.006));
 
-  // Opdater URL (uden scroll) – skriv pm (mio.) og undgå unødige replaces
+  // Beløb som besparelse beregnes på (mio. kr.) i stedet for fast 100 mio.
+  const [baseAmountMio, setBaseAmountMio] = useState<number>(getQ("bm", 100));
+
+  // Opdater URL (uden scroll)
   useEffect(() => {
     const nextQ = new URLSearchParams({
       pm: String(portefoljeMio),
       a: String(andelMed),
       rf: String(raadgPct),
-      k: String(kurtagePct),
-      ti: String(tiAndel),
+      ti: String(tiAndel), // ikke input, men behold i URL så scenarie kan deles
       g: String(aarligVaekstMio),
+      ks: String(kursPct),
       cpo: String(currPortefOmk),
       epo: String(expPortefOmk),
       cf: String(currFee),
       ef: String(expFee),
+      bm: String(baseAmountMio),
     }).toString();
 
     const currentQ = sp.toString();
@@ -163,35 +181,51 @@ export default function ClientPage() {
       router.replace(`${pathname}?${nextQ}`, { scroll: false });
     }
   }, [
-    portefoljeMio, andelMed, raadgPct, kurtagePct, tiAndel, aarligVaekstMio,
-    currPortefOmk, expPortefOmk, currFee, expFee, router, pathname, sp
+    portefoljeMio,
+    andelMed,
+    raadgPct,
+    tiAndel,
+    aarligVaekstMio,
+    kursPct,
+    currPortefOmk,
+    expPortefOmk,
+    currFee,
+    expFee,
+    baseAmountMio,
+    router,
+    pathname,
+    sp,
   ]);
 
   // Beregninger (konverter mio. kr. til DKK)
-  const aum0 = useMemo(() => (portefoljeMio * 1_000_000) * andelMed, [portefoljeMio, andelMed]);
-  const growth = useMemo(() => aarligVaekstMio * 1_000_000, [aarligVaekstMio]);
+  const aumStart = useMemo(() => portefoljeMio * 1_000_000 * andelMed, [portefoljeMio, andelMed]);
+  const inflow = useMemo(() => aarligVaekstMio * 1_000_000, [aarligVaekstMio]);
 
   type Row = { year: number; aum: number; raadg: number; kurtage: number; brutto: number; tiShare: number; egen: number };
-  const rows: Row[] = useMemo(
-    () =>
-      Array.from({ length: 5 }, (_, i) => {
-        const aum = aum0 + growth * i;
-        const raadg = aum * raadgPct;
-        const kurtage = aum * kurtagePct;
-        const brutto = raadg + kurtage;
-        const tiShare = brutto * tiAndel;
-        const egen = brutto - tiShare;
-        return { year: i + 1, aum, raadg, kurtage, brutto, tiShare, egen };
-      }),
-    [aum0, growth, raadgPct, kurtagePct, tiAndel]
-  );
+  const rows: Row[] = useMemo(() => {
+    const out: Row[] = [];
+    let aum = aumStart; // år 1 = start
+    for (let i = 1; i <= 5; i++) {
+      if (i > 1) {
+        // årlig udvikling: forrige AUM + nye midler, herefter kursstigning
+        aum = (aum + inflow) * (1 + kursPct);
+      }
+      const raadg = aum * raadgPct;
+      const kurtage = aum * kurtagePct; // 0
+      const brutto = raadg + kurtage;
+      const tiShare = brutto * tiAndel;
+      const egen = brutto - tiShare;
+      out.push({ year: i, aum, raadg, kurtage, brutto, tiShare, egen });
+    }
+    return out;
+  }, [aumStart, inflow, kursPct, raadgPct, kurtagePct, tiAndel]);
 
   const topline = rows[0];
 
-  // Kundens besparelse pr. 100 mio.
-  const per100m = 100_000_000;
-  const sparedePortef = (currPortefOmk - expPortefOmk) * per100m;
-  const diffFee = (expFee - currFee) * per100m;
+  // Kundens besparelse på valgfrit beløb
+  const baseAmount = baseAmountMio * 1_000_000;
+  const sparedePortef = (currPortefOmk - expPortefOmk) * baseAmount;
+  const diffFee = (expFee - currFee) * baseAmount;
   const netto = sparedePortef - diffFee;
 
   const grid2: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 };
@@ -202,7 +236,7 @@ export default function ClientPage() {
         <h1 className="ti-h1">Partnerindtjeningsmodel</h1>
         {/* Logo ude til højre */}
         <NextImage
-          src="/timeinvest-logo.png"   // filen ligger i /public/timeinvest-logo.png
+          src="/timeinvest-logo.png"
           alt="TimeInvest"
           width={150}
           height={36}
@@ -212,39 +246,38 @@ export default function ClientPage() {
       </header>
 
       <p className="ti-muted" style={{ marginBottom: 16 }}>
-        Just antagelserne og se effekten på indtjeningen og kundens besparelse.
+        <strong>Justér</strong> antagelserne og se effekten på indtjeningen og kundens besparelse.
       </p>
 
       <div style={grid2}>
         <section className="ti-card">
           <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Antagelser</h2>
           <div style={{ display: "grid", gap: 12 }}>
-            <Field label="Portefølje (mio. kr.)">
+            <Field label="Portefølje formue (mio. kr.)">
               <NumberInput value={portefoljeMio} onChange={setPortefoljeMio} min={0} />
             </Field>
-            <Field label={`Andel med (${fmtPct(andelMed)})`}>
+            <Field label={`Flytbar (${fmtPct(andelMed)})`}>
               <PercentInput value={andelMed} onChange={setAndelMed} />
             </Field>
             <Field label={`Rådgivningsfee (${fmtPct(raadgPct)})`}>
               <PercentInput value={raadgPct} onChange={setRaadgPct} />
             </Field>
-            <Field label={`Kurtage (${fmtPct(kurtagePct)})`}>
-              <PercentInput value={kurtagePct} onChange={setKurtagePct} />
-            </Field>
-            <Field label={`TimeInvest andel (${fmtPct(tiAndel)})`}>
-              <PercentInput value={tiAndel} onChange={setTiAndel} />
-            </Field>
-            <Field label="Årlig vækst (mio. kr.)">
+            {/* Kurtage-felt slettet */}
+            {/* TimeInvest andel-felt slettet (vises i nøgletal og tabel) */}
+            <Field label="Årlig vækst fra nye midler (mio. kr.)">
               <NumberInput value={aarligVaekstMio} onChange={setAarligVaekstMio} min={0} />
+            </Field>
+            <Field label={`Gennemsnitlig årlig kursstigning (${fmtPct(kursPct)})`}>
+              <PercentInput value={kursPct} onChange={setKursPct} />
             </Field>
           </div>
         </section>
 
         <section className="ti-card">
           <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Nøgletal (år 1)</h2>
-          <KPI label="AuM" value={fmtDKK(topline.aum)} />
+          <KPI label="Formue under rådgivning" value={fmtDKK(topline.aum)} />
           <KPI label="Bruttoindtægt" value={fmtDKK(topline.brutto)} />
-          <KPI label="TI-andel" value={`${fmtDKK(topline.tiShare)} (${fmtPct(tiAndel)})`} />
+          <KPI label={`TimeInvest andel (${fmtPct(tiAndel)})`} value={fmtDKK(topline.tiShare)} />
           <div className="ti-kpi">
             <span className="ti-muted">Egen indtjening</span>
             <strong>{fmtDKK(topline.egen)}</strong>
@@ -257,7 +290,15 @@ export default function ClientPage() {
         <table className="ti-table">
           <thead>
             <tr>
-              {["År", "AuM", "Rådgivningsfee", "Kurtage", "Brutto", "TI-andel", "Egen indtjening"].map((h) => (
+              {[
+                "År",
+                "Formue",
+                "Rådgivningsfee",
+                "Kurtage",
+                "Brutto",
+                "TimeInvest andel",
+                "Egen indtjening",
+              ].map((h) => (
                 <th key={h}>{h}</th>
               ))}
             </tr>
@@ -294,11 +335,14 @@ export default function ClientPage() {
             <Field label={`Forventet rådgivningsfee (${fmtPct(expFee)})`}>
               <PercentInput value={expFee} onChange={setExpFee} />
             </Field>
+            <Field label="Beregning på beløb (mio. kr.)">
+              <NumberInput value={baseAmountMio} onChange={setBaseAmountMio} min={0} />
+            </Field>
           </div>
         </section>
 
         <section className="ti-card">
-          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Besparelse pr. 100 mio. kr.</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Besparelse</h2>
           <div className="ti-kpi">
             <span className="ti-muted">Sparede porteføljeomkostninger</span>
             <strong>{fmtDKK(sparedePortef)}</strong>
@@ -311,7 +355,6 @@ export default function ClientPage() {
             <span className="ti-muted">Netto besparelse</span>
             <strong className={netto >= 0 ? "ti-positive" : "ti-negative"}>{fmtDKK(netto)}</strong>
           </div>
-          {/* Forklarende tekst er fjernet efter ønske */}
         </section>
       </div>
     </main>
